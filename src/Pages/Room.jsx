@@ -8,17 +8,40 @@ import { ID, Query, Permission, Role} from 'appwrite';
 const Room = () => {
   const [messages, setMessages] = useState([]);
   const [messageBody, setMessageBody] = useState('');
+  const {user} = useAuth();
 
  useEffect(()=>{
     getMessage();
+    const unsubscribe = client.subscribe([`databases.${DATABASE_ID}.collections.${COLLECTION_ID_MESSAGES}.documents`], response => {
+      // Callback will be executed on changes for documents A and all files.
+      if(response.events.includes("databases.*.collections.*.documents.*.create")){
+        setMessages(prevState =>[response.payload, ...prevState]);
+      }
+
+      if(response.events.includes("databases.*.collections.*.documents.*.delete")){
+        setMessages(prevState => prevState.filter(message => message.$id !== response.payload.$id));
+      }
+      console.log(response);
+    });
+
+    return () => {
+      unsubscribe();
+    };
  },[]);
 
- const payload = {
-  body:messageBody
-}
+ 
 
 const handleSubmit = async(e) =>{
   e.preventDefault();
+  const permissions = [
+    Permission.write(Role.user(user.$id)),
+  ]
+
+const payload = {
+    user_id:user.$id,
+    username:user.name,
+    body:messageBody
+}
   const response = await databases.createDocument(
    DATABASE_ID, 
    COLLECTION_ID_MESSAGES, 
